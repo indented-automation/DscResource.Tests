@@ -53,6 +53,7 @@ function Invoke-AppveyorInstallTask
                               -ChildPath 'nuget.exe'
     Install-NugetExe -OutFile $nugetExePath
 
+    # Install Pester
     $installPesterParameters = @{
         Name = 'Pester'
         Force = $true
@@ -71,6 +72,19 @@ function Invoke-AppveyorInstallTask
 
     Install-Module @installPesterParameters
 
+    # Install PSScriptAnalyzer
+    $installPSScriptAnalyzerParameters = @{
+        Name = 'PSScriptAnalyzer'
+        Force = $true
+    }
+
+    if ($installModuleSupportsSkipPublisherCheck)
+    {
+        $installPSScriptAnalyzerParameters['SkipPublisherCheck'] = $true
+    }
+
+    Install-Module @installPSScriptAnalyzerParameters
+    
     # Execute the custom install task if defined
     if ($customTaskModuleLoaded `
         -and (Get-Command -Module $CustomAppVeyorTasks `
