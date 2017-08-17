@@ -14,10 +14,10 @@ Import-LocalizedData -BindingVariable localizedData
     mandatory attribute must be formatted correctly.
 
 .EXAMPLE
-    Measure-ParameterBlockParameterAttribute -ScriptBlockAst $ScriptBlockAst
+    Measure-ParameterBlockParameterAttribute -ast $parameterAst
 
 .INPUTS
-    [System.Management.Automation.Language.ScriptBlockAst]
+    [System.Management.Automation.Language.ParameterAst]
 
 .OUTPUTS
     [Microsoft.Windows.Powershell.ScriptAnalyzer.Generic.DiagnosticRecord[]]
@@ -73,7 +73,8 @@ function Measure-ParameterBlockParameterAttribute
         if ($mandatoryNamedArgument)
         {
             $invalidFormat = $false
-            try {
+            try
+            {
                 $value = $mandatoryNamedArgument.Argument.SafeGetValue()
                 if ($value -eq $false)
                 {
