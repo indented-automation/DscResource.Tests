@@ -14,7 +14,7 @@ Import-LocalizedData -BindingVariable localizedData
     mandatory attribute must be formatted correctly.
 
 .EXAMPLE
-    Measure-ParameterBlockParameterAttribute -ast $parameterAst
+    Measure-ParameterBlockParameterAttribute -ParameterAst $parameterAst
 
 .INPUTS
     [System.Management.Automation.Language.ParameterAst]
@@ -34,7 +34,7 @@ function Measure-ParameterBlockParameterAttribute
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [System.Management.Automation.Language.ParameterAst]
-        $ast
+        $ParameterAst
     )
 
     try
@@ -42,65 +42,111 @@ function Measure-ParameterBlockParameterAttribute
         $recordType = [Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic.DiagnosticRecord]
         $record = @{
             Message  = ''
-            Extent   = $ast.Extent
+            Extent   = $ParameterAst.Extent
             Rulename = $PSCmdlet.MyInvocation.InvocationName
             Severity = 'Warning'
         }
 
-        if ($ast.Attributes.TypeName.FullName -notcontains 'parameter')
+        if ($ParameterAst.Attributes.TypeName.FullName -notcontains 'parameter')
         {
             $record['Message'] = $localizedData.ParameterBlockParameterAttributeMissing
 
             $record -as $recordType
         }
-        elseif ($ast.Attributes[0].TypeName.FullName -ne 'parameter')
+        elseif ($ParameterAst.Attributes[0].TypeName.FullName -ne 'parameter')
         {
             $record['Message'] = $localizedData.ParameterBlockParameterAttributeWrongPlace
 
             $record -as $recordType
         }
-        elseif ($ast.Attributes[0].TypeName.FullName -cne 'Parameter')
+        elseif ($ParameterAst.Attributes[0].TypeName.FullName -cne 'Parameter')
         {
             $record['Message'] = $localizedData.ParameterBlockParameterAttributeLowerCase
 
             $record -as $recordType
         }
+    }
+    catch
+    {
+        $PSCmdlet.ThrowTerminatingError($PSItem)
+    }
+}
 
-        $mandatoryNamedArgument = $ast.Find( {
-            $args[0] -is [System.Management.Automation.Language.NamedAttributeArgumentAst] -and
-            $args[0].ArgumentName -eq 'Mandatory'
-        }, $false)
-        if ($mandatoryNamedArgument)
-        {
-            $invalidFormat = $false
-            try
+<#
+.SYNOPSIS
+    Validates use of the Mandatory named argument within a Parameter attribute.
+
+.DESCRIPTION
+    If a parameter attribute contains the mandatory attribute the
+    mandatory attribute must be formatted correctly.
+
+.EXAMPLE
+    Measure-ParameterBlockMandatoryNamedArgument -NamedAttributeArgumentAst $namedAttributeArgumentAst
+
+.INPUTS
+    [System.Management.Automation.Language.NamedAttributeArgumentAst]
+
+.OUTPUTS
+    [Microsoft.Windows.Powershell.ScriptAnalyzer.Generic.DiagnosticRecord[]]
+
+.NOTES
+    None
+#>
+function Measure-ParameterBlockMandatoryNamedArgument
+{
+    [CmdletBinding()]
+    [OutputType([Microsoft.Windows.Powershell.ScriptAnalyzer.Generic.DiagnosticRecord[]])]
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.Management.Automation.Language.NamedAttributeArgumentAst]
+        $NamedAttributeArgumentAst
+    )
+
+    try
+    {
+        if ($NamedAttributeArgumentAst.ArgumentName -eq 'Mandatory') {
+            $recordType = [Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic.DiagnosticRecord]
+            $record = @{
+                Message  = ''
+                Extent   = $NamedAttributeArgumentAst.Extent
+                Rulename = $PSCmdlet.MyInvocation.InvocationName
+                Severity = 'Warning'
+            }
+
+            if ($NamedAttributeArgumentAst)
             {
-                $value = $mandatoryNamedArgument.Argument.SafeGetValue()
-                if ($value -eq $false)
+                $invalidFormat = $false
+                try
+                {
+                    $value = $NamedAttributeArgumentAst.Argument.SafeGetValue()
+                    if ($value -eq $false)
+                    {
+                        $invalidFormat = $true
+                    }
+                }
+                catch
                 {
                     $invalidFormat = $true
                 }
-            }
-            catch
-            {
-                $invalidFormat = $true
-            }
 
-            if ($mandatoryNamedArgument.ArgumentName -cne 'Mandatory')
-            {
-                $invalidFormat = $true
-            }
-            
-            if ($mandatoryNamedArgument.Argument.VariablePath.UserPath -cne 'true')
-            {
-                $invalidFormat = $true
-            }
+                if ($NamedAttributeArgumentAst.ArgumentName -cne 'Mandatory')
+                {
+                    $invalidFormat = $true
+                }
+                
+                if ($NamedAttributeArgumentAst.Argument.VariablePath.UserPath -cne 'true')
+                {
+                    $invalidFormat = $true
+                }
 
-            if ($invalidFormat)
-            {
-                $record['Message'] = $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
+                if ($invalidFormat)
+                {
+                    $record['Message'] = $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
 
-                $record -as $recordType
+                    $record -as $recordType
+                }
             }
         }
     }

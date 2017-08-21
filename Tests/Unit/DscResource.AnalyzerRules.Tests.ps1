@@ -1,15 +1,19 @@
+$script:ProjectRoot = (Get-Item $psscriptroot).Parent.Parent.FullName
 $script:ModuleName = (Get-Item $pscommandpath).BaseName -replace '\.Tests'
-$script:moduleRootPath = Join-Path (Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent) $script:ModuleName
+$script:ModuleRootPath = Join-Path $script:ProjectRoot $script:ModuleName
 
 Describe "$($script:ModuleName) Unit Tests" {
     BeforeAll {
-        $modulePath = Join-Path -Path $script:moduleRootPath -ChildPath "$($script:ModuleName).psm1"
+        Import-Module -Name (Join-Path -Path $script:ProjectRoot -ChildPath "TestHelper.psm1") -Force
+        Import-PSScriptAnalyzer
+
+        $modulePath = Join-Path -Path $script:ModuleRootPath -ChildPath "$($script:ModuleName).psm1"
         Import-LocalizedData -BindingVariable localizedData -BaseDirectory $script:moduleRootPath -FileName "$($script:ModuleName).psd1"
     }
 
     Describe 'Measure-ParameterBlockParameterAttribute' {
-        Context 'ParameterBlockAttributeMissing' {
-            It 'Writes a record, when ParameterAttribute is missing' {
+        Context 'When ParameterAttribute is missing' {
+            It 'Should write a record, when ParameterAttribute is missing' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -20,11 +24,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterAttributeMissing
             }
 
-            It 'Does not write a record, when ParameterAttribute is present' {
+            It 'Should not write a record, when ParameterAttribute is present' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -39,8 +43,8 @@ Describe "$($script:ModuleName) Unit Tests" {
             }
         }
 
-        Context 'ParameterBlockParameterAttributeWrongPlace' {
-            It 'Writes a record, when ParameterAttribute is not declared first' {
+        Context 'When ParameterAttribute is not declared first' {
+            It 'Should write a record, when ParameterAttribute is not declared first' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -53,11 +57,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterAttributeWrongPlace
             }
 
-            It 'Does not write a record, when ParameterAttribute is declared first' {
+            It 'Should not write a record, when ParameterAttribute is declared first' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -73,8 +77,8 @@ Describe "$($script:ModuleName) Unit Tests" {
             }
         }
         
-        Context 'ParameterBlockParameterAttributeLowerCase' {
-            It 'Writes a record, when ParameterAttribute is written in lower case' {
+        Context 'When ParameterAttribute is in lower-case' {
+            It 'Should write a record, when ParameterAttribute is written in lower case' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -86,11 +90,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterAttributeLowerCase
             }
 
-            It 'Does not write a record, when ParameterAttribute is written correctly' {
+            It 'Should not write a record, when ParameterAttribute is written correctly' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -105,8 +109,67 @@ Describe "$($script:ModuleName) Unit Tests" {
             }
         }
 
-        Context 'ParameterBlockParameterMandatoryAttributeWrongFormat' {
-            It 'Writes a record, when Mandatory is included and set to $false' {
+        Context 'When a param block contains more than one parameter' {
+            It 'Should write two records, when ParameterAttribute is missing from two parameters' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            $ParameterName1,
+
+                            $ParameterName2
+                        )
+                    }
+                '
+
+                $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
+                ($record | Measure-Object).Count | Should Be 2
+                $record[0].Message | Should Be $localizedData.ParameterBlockParameterAttributeMissing
+                $record[1].Message | Should Be $localizedData.ParameterBlockParameterAttributeMissing
+            }
+
+            It 'Should write two records, when ParameterAttribute is missing and in lower-case' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            $ParameterName1,
+
+                            [parameter()]
+                            $ParameterName2
+                        )
+                    }
+                '
+
+                $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
+                ($record | Measure-Object).Count | Should Be 2
+                $record[0].Message | Should Be $localizedData.ParameterBlockParameterAttributeMissing
+                $record[1].Message | Should Be $localizedData.ParameterBlockParameterAttributeLowerCase
+            }
+
+            It 'Should write a record, when ParameterAttribute is missing from a second parameter' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            [Parameter()]
+                            $ParameterName1,
+
+                            $ParameterName2
+                        )
+                    }
+                '
+
+                $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
+                ($record | Measure-Object).Count | Should Be 1
+                $record.Message | Should Be $localizedData.ParameterBlockParameterAttributeMissing
+            }
+        }
+    }
+
+    Describe 'Measure-ParameterBlockMandatoryNamedArgument' {
+        Context 'When Mandatory named argument is incorrectly formatted' {
+            It 'Should write a record, when Mandatory is included and set to $false' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -118,11 +181,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
             }
 
-            It 'Writes a record, when Mandatory is lower-case' {
+            It 'Should write a record, when Mandatory is lower-case' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -134,11 +197,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
             }
 
-            It 'Writes a record, when Mandatory does not include an explicit argument' {
+            It 'Should write a record, when Mandatory does not include an explicit argument' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -150,11 +213,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
             }
 
-            It 'Writes a record, when Mandatory is incorrectly written and other parameters are used' {
+            It 'Should write a record, when Mandatory is incorrectly written and other parameters are used' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -166,11 +229,11 @@ Describe "$($script:ModuleName) Unit Tests" {
                 '
 
                 $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
-                @($record).Count | Should Be 1
+                ($record | Measure-Object).Count | Should Be 1
                 $record.Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
             }
 
-            It 'Does not write a record, when Mandatory is correctly written' {
+            It 'Should not write a record, when Mandatory is correctly written' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -184,7 +247,7 @@ Describe "$($script:ModuleName) Unit Tests" {
                 Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath | Should BeNullOrEmpty
             }
 
-            It 'Does not write a record, when Mandatory is not present and other parameters are' {
+            It 'Should not write a record, when Mandatory is not present and other parameters are' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -198,7 +261,7 @@ Describe "$($script:ModuleName) Unit Tests" {
                 Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath | Should BeNullOrEmpty
             }
 
-            It 'Does not write a record, when Mandatory is correctly written and other parameters are listed' {
+            It 'Should not write a record, when Mandatory is correctly written and other parameters are listed' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -212,7 +275,21 @@ Describe "$($script:ModuleName) Unit Tests" {
                 Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath | Should BeNullOrEmpty
             }
 
-            It 'Does not write a record, when Mandatory is correctly written and other attributes are listed' {
+            It 'Should not write a record, when Mandatory is correctly written and not placed first' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            [Parameter(ParameterSetName = "SetName", Mandatory = $true)]
+                            $ParameterName
+                        )
+                    }
+                '
+
+                Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath | Should BeNullOrEmpty
+            }
+
+            It 'Should not write a record, when Mandatory is correctly written and other attributes are listed' {
                 $definition = '
                     function Get-TargetResource
                     {
@@ -226,6 +303,47 @@ Describe "$($script:ModuleName) Unit Tests" {
 
                 Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath | Should BeNullOrEmpty
             }            
+        }
+
+        Context 'When a param block contains more than one parameter' {
+            It 'Should write two records, when Mandatory is incorrect set on two parameters' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            [Parameter(Mandatory)]
+                            $ParameterName1,
+
+                            [Parameter(Mandatory = $false)]
+                            $ParameterName2
+                        )
+                    }
+                '
+
+                $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
+                ($record | Measure-Object).Count | Should Be 2
+                $record[0].Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
+                $record[1].Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
+            }
+
+            It 'Should write two records, when ParameterAttribute is missing and in lower-case' {
+                $definition = '
+                    function Get-TargetResource
+                    {
+                        Param (
+                            [Parameter(Mandatory = $true)]
+                            $ParameterName1,
+
+                            [Parameter(mandatory = $false)]
+                            $ParameterName2
+                        )
+                    }
+                '
+
+                $record = Invoke-ScriptAnalyzer -ScriptDefinition $definition -CustomRulePath $modulePath
+                ($record | Measure-Object).Count | Should Be 1
+                $record.Message | Should Be $localizedData.ParameterBlockParameterMandatoryAttributeWrongFormat
+            }
         }
     }
 }
