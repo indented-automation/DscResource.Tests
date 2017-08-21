@@ -123,20 +123,20 @@ function Measure-ParameterBlockMandatoryNamedArgument
                     $value = $NamedAttributeArgumentAst.Argument.SafeGetValue()
                     if ($value -eq $false)
                     {
+                        $record['Message'] = $localizedData.ParameterBlockNonMandatoryParameterMandatoryAttributeWrongFormat
+
+                        $record -as $recordType
+                    }
+                    elseif ($NamedAttributeArgumentAst.Argument.VariablePath.UserPath -cne 'true')
+                    {
+                        $invalidFormat = $true
+                    }
+                    elseif ($NamedAttributeArgumentAst.ArgumentName -cne 'Mandatory')
+                    {
                         $invalidFormat = $true
                     }
                 }
                 catch
-                {
-                    $invalidFormat = $true
-                }
-
-                if ($NamedAttributeArgumentAst.ArgumentName -cne 'Mandatory')
-                {
-                    $invalidFormat = $true
-                }
-                
-                if ($NamedAttributeArgumentAst.Argument.VariablePath.UserPath -cne 'true')
                 {
                     $invalidFormat = $true
                 }
