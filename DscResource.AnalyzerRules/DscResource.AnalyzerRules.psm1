@@ -10,8 +10,7 @@ Import-LocalizedData -BindingVariable localizedData
 .DESCRIPTION
     All parameters in a param block must contain a [Parameter()] attribute
     and it must be the first attribute for each parameter and must start with
-    a capital letter P. If it also contains the mandatory attribute, then the
-    mandatory attribute must be formatted correctly.
+    a capital letter P.
 
 .EXAMPLE
     Measure-ParameterBlockParameterAttribute -ParameterAst $parameterAst
@@ -106,7 +105,8 @@ function Measure-ParameterBlockMandatoryNamedArgument
 
     try
     {
-        if ($NamedAttributeArgumentAst.ArgumentName -eq 'Mandatory') {
+        if ($NamedAttributeArgumentAst.ArgumentName -eq 'Mandatory')
+        {
             $recordType = [Microsoft.Windows.PowerShell.ScriptAnalyzer.Generic.DiagnosticRecord]
             $record = @{
                 Message  = ''
